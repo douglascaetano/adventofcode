@@ -1,23 +1,42 @@
 use std::io::{self, Read};
+use std::process;
 
 fn main() {
+    println!("Advent of Code 2018 - Day 1");
+    println!("---------------------------");
+    println!();
+
     let mut input = String::new();
-    io::stdin().read_to_string(&mut input).expect("invalid input on stdin.");
-    let input = from_input(&input);
-    let ans = sum_numbers(&input);
-    println!("Ans: {}", ans);
-}
-
-fn from_input(input: &str) -> Vec<i32> {
-    let mut ret = Vec::new();
-    for i in input.lines() {
-        ret.push(i.parse().expect(&format!("input line \"{}\" not a number.", &i)));
+    if let Err(_) = io::stdin().read_to_string(&mut input) {
+        eprintln!("Input is not a valid UTF-8 string.");
+        process::exit(1);
     }
-    ret
+
+    let input = match from_input(&input) {
+        Ok(i) => i,
+        Err(e) => {
+            eprintln!("Input line \"{}\" is not a number.", e);
+            process::exit(1);
+        },
+    };
+
+    println!("Your input has {} entries.", input.len());
+    println!();
+
+    let ans: i32 = input.iter().sum();
+
+    println!("The sum of the input values is: {}", ans);
 }
 
-fn sum_numbers(input: &Vec<i32>) -> i32 {
-    input.iter().sum()
+fn from_input(input: &str) -> Result<Vec<i32>, &str> {
+    let mut ret = Vec::new();
+    for line in input.lines() {
+        ret.push(match line.parse() {
+            Ok(i) => i,
+            Err(_) => return Err(line),
+        });
+    }
+    Ok(ret)
 }
 
 #[cfg(test)]
@@ -28,20 +47,12 @@ mod tests {
     fn interpret_input() {
         let input = "+2\n+4\n-3\n";
         let ans = from_input(&input);
-        assert_eq!(vec![2, 4, -3], ans);
+        assert_eq!(vec![2, 4, -3], ans.unwrap());
     }
 
     #[test]
-    #[should_panic]
     fn fail_input() {
         let invalid_input = "+2\nwrong\n-3\n";
-        from_input(&invalid_input);
-    }
-
-    #[test]
-    fn sum_vec() {
-        let input = vec![2, 7, -3];
-        let ans = sum_numbers(&input);
-        assert_eq!(6, ans);
+        assert!(from_input(&invalid_input).is_err());
     }
 }
