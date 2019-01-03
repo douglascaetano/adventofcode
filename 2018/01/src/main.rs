@@ -17,7 +17,8 @@ fn main() {
         process::exit(1);
     });
 
-    println!("Your input has {} entries.", input.len());
+    let ilen = input.len();
+    println!("Your input has {} entr{}.", ilen, if ilen == 1 { "y" } else { "ies" });
     println!();
 
     let ans: i32 = input.iter().sum();
