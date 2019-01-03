@@ -12,13 +12,10 @@ fn main() {
         process::exit(1);
     }
 
-    let input = match from_input(&input) {
-        Ok(i) => i,
-        Err(e) => {
-            eprintln!("Input line \"{}\" is not a number.", e);
-            process::exit(1);
-        },
-    };
+    let input = from_input(&input).unwrap_or_else(|e| {
+        eprintln!("Input line \"{}\" is not a number.", e);
+        process::exit(1);
+    });
 
     println!("Your input has {} entries.", input.len());
     println!();
