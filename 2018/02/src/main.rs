@@ -14,11 +14,11 @@ fn main() {
         process::exit(1);
     }
 
-    let ilen = input.len();
+    let ids: Vec<_> = input.lines().collect();
+
+    let ilen = ids.len();
     println!("Your input has {} entr{}.", ilen, if ilen == 1 { "y" } else { "ies" });
     println!();
-
-    let ids: Vec<_> = input.lines().collect();
 
     let mut two_rep_cnt = 0;
     let mut three_rep_cnt = 0;
