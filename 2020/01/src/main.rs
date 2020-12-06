@@ -62,14 +62,21 @@ mod tests {
 
     #[test]
     fn test_find_pair() {
-        let pair = find_combination(vec![2, 10, 1000, 9999, 1020]).expect("a pair");
+        let pair = find_combination(2, 2020, vec![2, 10, 1000, 9999, 1020]).expect("a pair");
         assert_eq!(pair, vec![1000, 1020]);
         assert_eq!(pair.len(), 2);
     }
 
     #[test]
     fn test_find_pair_fail() {
-        let pair = find_combination(vec![2, 10, 1000, 9999]);
+        let pair = find_combination(2, 2020, vec![2, 10, 1000, 9999]);
         assert!(pair.is_none());
+    }
+
+    #[test]
+    fn test_find_trio() {
+        let trio = find_combination(3, 2020, vec![2, 10, 1000, 1010]).expect("a trio");
+        assert_eq!(trio, vec![10, 1000, 1010]);
+        assert_eq!(trio.len(), 3);
     }
 }
