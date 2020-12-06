@@ -11,10 +11,12 @@ fn main() {
     println!("Total entries: {}", entries.len());
 
     let pair = find_pair(entries).expect("input containing a pair of values that sum 2020");
+    let a = pair[0];
+    let b = pair[1];
 
     println!("Found pair:");
-    println!("  {} + {} = {}", pair[0], pair[1], pair[0] + pair[1]);
-    println!("  {} * {} = {}", pair[0], pair[1], pair[0] * pair[1]);
+    println!("  {} + {} = {}", a, b, a + b);
+    println!("  {} * {} = {}", a, b, a * b);
 }
 
 fn get_entries() -> Vec<u32> {
