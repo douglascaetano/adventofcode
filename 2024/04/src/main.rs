@@ -21,15 +21,15 @@ fn word_is_present(
     offset: Distance,
     word: &[char],
 ) -> bool {
-    let Some(&char_to_compare) = word.get(0) else {
+    if word.is_empty() {
         return true;
-    };
+    }
 
     let position = from_position + offset;
 
     matrix
         .get(position)
-        .is_some_and(|&current| current == char_to_compare)
+        .is_some_and(|&current| current == word[0])
         && word_is_present(matrix, position, offset, &word[1..])
 }
 
