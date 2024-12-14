@@ -1,102 +1,96 @@
+mod matrix;
+
 use std::io::Read;
 
-fn read_matrix(input: &str) -> Vec<Vec<char>> {
-    input.lines().map(|line| line.chars().collect()).collect()
+use self::matrix::Coordinate;
+use self::matrix::Distance;
+use self::matrix::Matrix;
+use self::matrix::MatrixError;
+
+fn read_matrix(input: &str) -> Result<Matrix<char>, MatrixError> {
+    input
+        .lines()
+        .map(|line| line.chars().collect())
+        .collect::<Vec<_>>()
+        .try_into()
 }
 
 fn word_is_present(
-    matrix: &Vec<Vec<char>>,
-    from_position: (usize, usize),
-    offset: (isize, isize),
+    matrix: &Matrix<char>,
+    from_position: Coordinate,
+    offset: Distance,
     word: &[char],
 ) -> bool {
-    let Some(char_to_compare) = word.get(0) else {
+    let Some(&char_to_compare) = word.get(0) else {
         return true;
     };
 
-    let (from_row, from_col) = from_position;
-    let (row_offset, col_offset) = offset;
+    let position = from_position + offset;
 
-    let row = (from_row as isize + row_offset) as usize;
-    let col = (from_col as isize + col_offset) as usize;
-
-    let Some(current) = matrix.get(row).and_then(|row| row.get(col)) else {
-        return false;
-    };
-
-    *current == *char_to_compare && word_is_present(matrix, (row, col), offset, &word[1..])
+    matrix
+        .get(position)
+        .is_some_and(|&current| current == char_to_compare)
+        && word_is_present(matrix, position, offset, &word[1..])
 }
 
-fn count_xmas(matrix: &Vec<Vec<char>>) -> usize {
+fn count_xmas(matrix: &Matrix<char>) -> usize {
     matrix
-        .iter()
-        .enumerate()
-        .flat_map(|(row_idx, row)| {
-            row.iter()
-                .enumerate()
-                .filter_map(move |(col_idx, &elem)| (elem == 'X').then_some((row_idx, col_idx)))
-        })
-        .map(|from_position| {
+        .iter_enumerate()
+        .filter(|(_, &elem)| elem == 'X')
+        .map(|(from_position, _)| {
             (-1..=1)
-                .flat_map(|row_offset| (-1..=1).map(move |col_offset| (row_offset, col_offset)))
+                .flat_map(|row_offset| {
+                    (-1..=1).map(move |col_offset| Distance::new(row_offset, col_offset))
+                })
                 .filter(|&offset| word_is_present(matrix, from_position, offset, &['M', 'A', 'S']))
                 .count()
         })
         .sum()
 }
 
-fn is_x_mas(matrix: &Vec<Vec<char>>, position: (usize, usize)) -> bool {
-    fn is_char(matrix: &Vec<Vec<char>>, (row, col): (usize, usize), c: char) -> bool {
-        matrix
-            .get(row)
-            .and_then(|row| row.get(col))
-            .is_some_and(|&elem| elem == c)
-    }
-
-    let (row_idx, col_idx) = position;
-
-    if row_idx == 0 || col_idx == 0 {
+fn is_x_mas(matrix: &Matrix<char>, position: Coordinate) -> bool {
+    if matrix.get(position).is_some_and(|&elem| elem != 'A')
+        || position.row == 0
+        || position.col == 0
+    {
         return false;
     }
 
-    let pairs = [
-        ((row_idx - 1, col_idx - 1), (row_idx + 1, col_idx + 1)),
-        ((row_idx - 1, col_idx + 1), (row_idx + 1, col_idx - 1)),
+    let corners_pairs = [
+        (position + (-1, -1), position + (1, 1)),
+        (position + (-1, 1), position + (1, -1)),
     ];
 
     let chars = [('M', 'S'), ('S', 'M')];
 
-    pairs.into_iter().all(|(corner_a, corner_b)| {
+    corners_pairs.into_iter().all(|(corner_a, corner_b)| {
         chars.into_iter().any(|(char_a, char_b)| {
-            is_char(matrix, corner_a, char_a) && is_char(matrix, corner_b, char_b)
+            matrix.get(corner_a).is_some_and(|&elem| elem == char_a)
+                && matrix.get(corner_b).is_some_and(|&elem| elem == char_b)
         })
     })
 }
 
-fn count_x_mas(matrix: &Vec<Vec<char>>) -> usize {
+fn count_x_mas(matrix: &Matrix<char>) -> usize {
     matrix
-        .iter()
-        .enumerate()
-        .flat_map(|(row_idx, row)| {
-            row.iter()
-                .enumerate()
-                .filter_map(move |(col_idx, col)| (*col == 'A').then_some((row_idx, col_idx)))
-        })
-        .filter(|&position| is_x_mas(matrix, position))
+        .iter_enumerate()
+        .filter(|&(position, _)| is_x_mas(matrix, position))
         .count()
 }
 
-fn main() {
+fn main() -> Result<(), Box<dyn std::error::Error>> {
     println!("Hello, Advent of Code 2024!");
     println!("--- Day 4 ---");
 
     let mut input = String::new();
-    std::io::stdin().read_to_string(&mut input).unwrap();
+    std::io::stdin().read_to_string(&mut input)?;
 
-    let matrix = read_matrix(&input);
+    let matrix = read_matrix(&input)?;
 
     println!("Part 1: number of XMAS is {}", count_xmas(&matrix));
     println!("Part 2: number of X-MAS is {}", count_x_mas(&matrix));
+
+    Ok(())
 }
 
 #[cfg(test)]
@@ -107,14 +101,31 @@ mod tests {
 
     #[test]
     fn test_word_is_present() {
-        let matrix = read_matrix("OOOS\nOOAO\nOMOO\nXOOO");
+        let matrix = read_matrix("OOOS\nOOAO\nOMOO\nXOOO").unwrap();
 
-        assert!(word_is_present(&matrix, (3, 0), (-1, 1), &['M', 'A', 'S']));
+        assert!(word_is_present(
+            &matrix,
+            (3, 0).into(),
+            (-1, 1).into(),
+            &['M', 'A', 'S']
+        ));
+    }
+
+    #[test]
+    fn test_not_word_is_present_at_border() {
+        let matrix = read_matrix("SOOO\nAOOO\nMOOO\nOXOO").unwrap();
+
+        assert!(!word_is_present(
+            &matrix,
+            (3, 1).into(),
+            (-1, -1).into(),
+            &['M', 'A', 'S']
+        ));
     }
 
     #[test]
     fn test_count_xmas() {
-        let matrix = read_matrix(SAMPLE);
+        let matrix = read_matrix(SAMPLE).unwrap();
 
         assert_eq!(count_xmas(&matrix), 18);
     }
@@ -129,35 +140,35 @@ mod tests {
         ];
 
         for x_mas in x_mases {
-            let matrix = read_matrix(x_mas);
-            assert!(is_x_mas(&matrix, (1, 1)), "failed for:\n{}", x_mas);
+            let matrix = read_matrix(x_mas).unwrap();
+            assert!(is_x_mas(&matrix, (1, 1).into()), "failed for:\n{}", x_mas);
         }
     }
 
     #[test]
     fn test_not_is_x_mas() {
-        let matrix = read_matrix("M_S\n_A_\nS_M");
+        let matrix = read_matrix("M_S\n_A_\nS_M").unwrap();
 
-        assert!(!is_x_mas(&matrix, (1, 1)));
+        assert!(!is_x_mas(&matrix, (1, 1).into()));
     }
 
     #[test]
     fn test_not_is_x_mas_at_border_left() {
-        let matrix = read_matrix("MS_\nA__\nMS_");
+        let matrix = read_matrix("MS_\nA__\nMS_").unwrap();
 
-        assert!(!is_x_mas(&matrix, (1, 0)));
+        assert!(!is_x_mas(&matrix, (1, 0).into()));
     }
 
     #[test]
     fn test_not_is_x_mas_at_border_right() {
-        let matrix = read_matrix("_MS\n__A\n_MS");
+        let matrix = read_matrix("_MS\n__A\n_MS").unwrap();
 
-        assert!(!is_x_mas(&matrix, (1, 2)));
+        assert!(!is_x_mas(&matrix, (1, 2).into()));
     }
 
     #[test]
     fn test_count_x_mas() {
-        let matrix = read_matrix(SAMPLE);
+        let matrix = read_matrix(SAMPLE).unwrap();
 
         assert_eq!(count_x_mas(&matrix), 9);
     }
