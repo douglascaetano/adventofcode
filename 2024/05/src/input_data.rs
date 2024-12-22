@@ -18,6 +18,14 @@ impl InputData {
             .map(|pagelist| pagelist.as_slice())
             .collect()
     }
+
+    pub fn fix_incorrect_updates(&self) -> Vec<Vec<usize>> {
+        self.updates_pagelist
+            .iter()
+            .filter(|pagelist| !self.ordering_rules.pagelist_is_valid(pagelist))
+            .map(|pagelist| self.ordering_rules.fix_pagelist(pagelist))
+            .collect()
+    }
 }
 
 impl FromStr for InputData {
@@ -94,5 +102,15 @@ mod tests {
         };
 
         assert_eq!(data.get_correct_updates(), vec![&vec![1, 2, 5, 6]]);
+    }
+
+    #[test]
+    fn test_fix_incorrect_updates() {
+        let data = InputData {
+            ordering_rules: PageOrderingRules::from_iter(vec![(1, 2), (5, 6)]),
+            updates_pagelist: vec![vec![1, 2, 5, 6], vec![2, 6, 5]],
+        };
+
+        assert_eq!(data.fix_incorrect_updates(), vec![vec![2, 5, 6]]);
     }
 }

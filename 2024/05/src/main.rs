@@ -5,10 +5,11 @@ use std::str::FromStr;
 
 use self::input_data::InputData;
 
-fn sum_of_middles(pagelists: &[&[usize]]) -> usize {
-    pagelists
-        .iter()
-        .fold(0, |sum, pagelist| sum + pagelist[pagelist.len() / 2])
+fn sum_of_middles<T: AsRef<[usize]>>(pagelists: &[T]) -> usize {
+    pagelists.iter().fold(0, |sum, pagelist| {
+        let pagelist = pagelist.as_ref();
+        sum + pagelist[pagelist.len() / 2]
+    })
 }
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
@@ -20,10 +21,13 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     let data = InputData::from_str(&input)?;
 
-    let sum_of_middles = sum_of_middles(&data.get_correct_updates());
+    let sum_of_middles_of_correct_updates = sum_of_middles(&data.get_correct_updates());
+    let sum_of_middles_of_incorrect_updates = sum_of_middles(&data.fix_incorrect_updates());
 
-    println!("Part 1: sum of middles of correct updates is {sum_of_middles}");
-    println!("Part 2: ?");
+    println!("Part 1: sum of middles of correct updates is {sum_of_middles_of_correct_updates}");
+    println!(
+        "Part 2: sum of middles of incorrect, but fixed, updates is {sum_of_middles_of_incorrect_updates}"
+    );
 
     Ok(())
 }
@@ -38,5 +42,11 @@ mod tests {
     fn test_sum_of_middles() {
         let data = InputData::from_str(SAMPLE).unwrap();
         assert_eq!(sum_of_middles(&data.get_correct_updates()), 143);
+    }
+
+    #[test]
+    fn test_fix_incorrect_updates() {
+        let data = InputData::from_str(SAMPLE).unwrap();
+        assert_eq!(sum_of_middles(&data.fix_incorrect_updates()), 123);
     }
 }

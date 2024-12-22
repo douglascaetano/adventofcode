@@ -37,6 +37,30 @@ impl PageOrderingRules {
 
         true
     }
+
+    pub fn fix_pagelist(&self, pagelist: &[usize]) -> Vec<usize> {
+        let mut pagelist = pagelist.to_owned();
+
+        // iterate by index because pagelist must be muted inside the loops
+        for i in 0..pagelist.len() {
+            let page = pagelist[i];
+
+            if let Some(page_rules) = self.rules.get(&page) {
+                // look for the first previous_page that should be after page
+                for j in 0..i {
+                    let previous_page = pagelist[j];
+
+                    if page_rules.contains(&previous_page) {
+                        pagelist.copy_within(j..i, j + 1);
+                        pagelist[j] = page;
+                        break;
+                    }
+                }
+            }
+        }
+
+        pagelist
+    }
 }
 
 impl FromIterator<(usize, usize)> for PageOrderingRules {
@@ -87,5 +111,13 @@ mod tests {
         let pagelist = vec![2, 1, 6, 5];
 
         assert!(!ordering_rules.pagelist_is_valid(&pagelist));
+    }
+
+    #[test]
+    fn test_fix_pagelist() {
+        let ordering_rules = PageOrderingRules::from_iter(vec![(1, 2), (5, 6)]);
+        let pagelist = vec![2, 6, 1, 5];
+
+        assert_eq!(ordering_rules.fix_pagelist(&pagelist), vec![1, 2, 5, 6]);
     }
 }
