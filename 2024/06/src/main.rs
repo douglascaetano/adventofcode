@@ -4,30 +4,64 @@ use std::collections::HashSet;
 use std::io::Read;
 
 use self::map::Map;
-use self::map::Point;
+use self::map::Position;
 
-fn predict_guard_path(map: &Map) -> Vec<Point> {
-    let mut guard_position = map.guard_start_position();
+struct Guard {
+    current: Option<Position>,
+    path: Vec<Position>,
+    past_positions: HashSet<Position>,
+    map: Map,
+}
 
-    let mut guard_path = vec![guard_position.position];
-
-    loop {
-        let next_position = guard_position.position.move_to(guard_position.direction);
-
-        if !map.point_is_valid(next_position) {
-            break;
+impl Guard {
+    fn new(map: Map) -> Guard {
+        Guard {
+            current: Some(map.guard_start_position()),
+            path: vec![map.guard_start_position()],
+            past_positions: HashSet::from([map.guard_start_position()]),
+            map,
         }
-
-        if map.point_is_obstructed(next_position) {
-            guard_position.direction = guard_position.direction.rotate_clockwise();
-            continue;
-        }
-
-        guard_position.position = next_position;
-        guard_path.push(next_position);
     }
 
-    guard_path
+    fn r#move(&mut self) -> Option<Position> {
+        if let Some(position) = self.current {
+            let next_position = position.r#move();
+
+            if !self.map.is_point_on_grid(next_position.point) {
+                self.current = None;
+            } else if self.map.is_point_obstructed(next_position.point) {
+                self.current = Some(position.rotate_clockwise());
+            } else {
+                self.current = Some(next_position);
+            }
+
+            self.path.push(position);
+            self.past_positions.insert(position);
+        }
+
+        self.current
+    }
+
+    fn move_until_out_of_grid(&mut self) -> Result<(), Box<dyn std::error::Error>> {
+        while let Some(position) = self.r#move() {
+            if self.past_positions.contains(&position) {
+                return Err("loop detected".into());
+            }
+        }
+
+        Ok(())
+    }
+}
+
+fn count_unique_points(map: &Map) -> usize {
+    let mut guard = Guard::new(map.clone());
+    guard.move_until_out_of_grid().expect("map should be valid");
+    guard
+        .past_positions
+        .iter()
+        .map(|p| p.point)
+        .collect::<HashSet<_>>()
+        .len()
 }
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
@@ -39,13 +73,9 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     let map: Map = input.parse()?;
 
-    let guard_path = predict_guard_path(&map);
-
-    let unique_positions: HashSet<Point> = HashSet::from_iter(guard_path);
-
     println!(
-        "Part 1: distinct positions guard will visit: {}",
-        unique_positions.len()
+        "Part 1: distinct points guard will visit: {}",
+        count_unique_points(&map)
     );
     println!("Part 2: ?");
 
@@ -56,17 +86,48 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 mod tests {
     use super::*;
 
+    use crate::map::Direction;
+    use crate::map::Point;
+
     const SAMPLE: &str = include_str!("../sample.txt");
 
     #[test]
-    fn test_predict_guard_path() {
+    fn test_guard_initial_position() {
         let map: Map = SAMPLE.parse().unwrap();
 
-        let guard_path = predict_guard_path(&map);
-        let unique_positions: HashSet<Point> = HashSet::from_iter(guard_path.clone());
+        let guard = Guard::new(map);
 
-        assert_eq!(guard_path[0], Point::new(6, 4));
-        assert_eq!(guard_path.last(), Some(&Point::new(9, 7)));
-        assert_eq!(unique_positions.len(), 41);
+        assert_eq!(
+            guard.current,
+            Some(Position {
+                point: Point::new(6, 4),
+                direction: Direction::North
+            })
+        );
+    }
+
+    #[test]
+    fn test_guard_move() {
+        let map: Map = SAMPLE.parse().unwrap();
+        let mut guard = Guard::new(map);
+
+        let new_position = guard.r#move();
+
+        assert_eq!(
+            new_position,
+            Some(Position {
+                point: Point::new(5, 4),
+                direction: Direction::North
+            })
+        );
+    }
+
+    #[test]
+    fn test_count_unique_points() {
+        let map: Map = SAMPLE.parse().unwrap();
+
+        let unique_points = count_unique_points(&map);
+
+        assert_eq!(unique_points, 41);
     }
 }

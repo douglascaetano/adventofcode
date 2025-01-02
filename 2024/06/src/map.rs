@@ -80,16 +80,32 @@ impl TryFrom<char> for Direction {
     }
 }
 
-#[derive(Debug, Default, Clone, Copy)]
-pub struct GuardPosition {
-    pub position: Point,
+#[derive(Debug, Default, Clone, Copy, Hash, Eq, PartialEq)]
+pub struct Position {
+    pub point: Point,
     pub direction: Direction,
 }
 
-#[derive(Debug, Default)]
+impl Position {
+    pub fn r#move(&self) -> Self {
+        Position {
+            point: self.point.move_to(self.direction),
+            direction: self.direction,
+        }
+    }
+
+    pub fn rotate_clockwise(&self) -> Self {
+        Position {
+            point: self.point,
+            direction: self.direction.rotate_clockwise(),
+        }
+    }
+}
+
+#[derive(Debug, Default, Clone)]
 pub struct Map {
     obstructions: HashSet<Point>,
-    guard_start: GuardPosition,
+    guard_start: Position,
     height: usize,
     width: usize,
 }
@@ -99,7 +115,7 @@ impl FromStr for Map {
 
     fn from_str(s: &str) -> Result<Self, Self::Err> {
         let mut obstructions = HashSet::new();
-        let mut guard_start = GuardPosition::default();
+        let mut guard_start = Position::default();
         let mut height = 0;
         let mut width = 0;
 
@@ -114,8 +130,8 @@ impl FromStr for Map {
                 if elem == '#' {
                     obstructions.insert(Point::from((line, column)));
                 } else if let Ok(direction) = elem.try_into() {
-                    guard_start = GuardPosition {
-                        position: Point::from((line, column)),
+                    guard_start = Position {
+                        point: Point::from((line, column)),
                         direction,
                     }
                 }
@@ -138,15 +154,15 @@ impl FromStr for Map {
 }
 
 impl Map {
-    pub fn guard_start_position(&self) -> GuardPosition {
+    pub fn guard_start_position(&self) -> Position {
         self.guard_start
     }
 
-    pub fn point_is_obstructed(&self, point: Point) -> bool {
+    pub fn is_point_obstructed(&self, point: Point) -> bool {
         self.obstructions.contains(&point)
     }
 
-    pub fn point_is_valid(&self, point: Point) -> bool {
+    pub fn is_point_on_grid(&self, point: Point) -> bool {
         (0..self.height as isize).contains(&point.line)
             && (0..self.width as isize).contains(&point.column)
     }
@@ -197,17 +213,17 @@ mod tests {
 
         assert_eq!(map.height, 3);
         assert_eq!(map.width, 3);
-        assert_eq!(map.guard_start.position.line, 0);
-        assert_eq!(map.guard_start.position.column, 2);
+        assert_eq!(map.guard_start.point.line, 0);
+        assert_eq!(map.guard_start.point.column, 2);
         assert_eq!(map.guard_start.direction, Direction::South);
         assert_eq!(map.obstructions.len(), 3);
         assert_eq!(
             map.obstructions,
             HashSet::from([Point::new(0, 1), Point::new(1, 0), Point::new(2, 2)])
         );
-        assert!(map.point_is_obstructed(Point::new(0, 1)));
-        assert!(map.point_is_valid(Point::new(0, 1)));
-        assert!(!map.point_is_valid(Point::new(3, 3)));
-        assert!(!map.point_is_valid(Point::new(-1, -1)));
+        assert!(map.is_point_obstructed(Point::new(0, 1)));
+        assert!(map.is_point_on_grid(Point::new(0, 1)));
+        assert!(!map.is_point_on_grid(Point::new(3, 3)));
+        assert!(!map.is_point_on_grid(Point::new(-1, -1)));
     }
 }
