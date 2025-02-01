@@ -104,10 +104,10 @@ impl Position {
 
 #[derive(Debug, Default, Clone)]
 pub struct Map {
-    obstructions: HashSet<Point>,
-    guard_start: Position,
-    height: usize,
-    width: usize,
+    pub obstructions: HashSet<Point>,
+    pub guard_start: Position,
+    pub height: usize,
+    pub width: usize,
 }
 
 impl FromStr for Map {

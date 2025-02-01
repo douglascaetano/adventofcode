@@ -4,6 +4,7 @@ use std::collections::HashSet;
 use std::io::Read;
 
 use self::map::Map;
+use self::map::Point;
 use self::map::Position;
 
 struct Guard {
@@ -53,15 +54,28 @@ impl Guard {
     }
 }
 
-fn count_unique_points(map: &Map) -> usize {
-    let mut guard = Guard::new(map.clone());
-    guard.move_until_out_of_grid().expect("map should be valid");
+fn unique_points(guard: &Guard) -> HashSet<Point> {
     guard
         .past_positions
         .iter()
         .map(|p| p.point)
         .collect::<HashSet<_>>()
-        .len()
+}
+
+fn possible_new_obstructions(guard: &Guard) -> HashSet<Point> {
+    guard
+        .past_positions
+        .iter()
+        .map(|p| p.r#move().point)
+        .filter(|p| guard.map.is_point_on_grid(*p) && !guard.map.is_point_obstructed(*p))
+        .filter(|p| {
+            let mut map = guard.map.clone();
+            map.obstructions.insert(*p);
+
+            let mut guard = Guard::new(map);
+            guard.move_until_out_of_grid().is_err()
+        })
+        .collect::<HashSet<_>>()
 }
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
@@ -72,12 +86,18 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     std::io::stdin().read_to_string(&mut input)?;
 
     let map: Map = input.parse()?;
+    let mut guard = Guard::new(map);
+
+    guard.move_until_out_of_grid()?;
 
     println!(
         "Part 1: distinct points guard will visit: {}",
-        count_unique_points(&map)
+        unique_points(&guard).len()
     );
-    println!("Part 2: ?");
+    println!(
+        "Part 2: number of possible new obstructions: {}",
+        possible_new_obstructions(&guard).len()
+    );
 
     Ok(())
 }
@@ -125,9 +145,33 @@ mod tests {
     #[test]
     fn test_count_unique_points() {
         let map: Map = SAMPLE.parse().unwrap();
+        let mut guard = Guard::new(map);
+        guard.move_until_out_of_grid().unwrap();
 
-        let unique_points = count_unique_points(&map);
+        let unique_points = unique_points(&guard);
 
-        assert_eq!(unique_points, 41);
+        assert_eq!(unique_points.len(), 41);
+    }
+
+    #[test]
+    fn test_possible_new_obstructions() {
+        let map: Map = SAMPLE.parse().unwrap();
+        let mut guard = Guard::new(map);
+        guard.move_until_out_of_grid().unwrap();
+
+        let obstructions = dbg!(possible_new_obstructions(&guard));
+
+        assert_eq!(obstructions.len(), 6);
+        assert_eq!(
+            obstructions,
+            HashSet::from([
+                Point::new(6, 3),
+                Point::new(7, 6),
+                Point::new(7, 7),
+                Point::new(8, 1),
+                Point::new(8, 3),
+                Point::new(9, 7),
+            ])
+        );
     }
 }
