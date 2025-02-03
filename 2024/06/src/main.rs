@@ -7,46 +7,53 @@ use self::map::Map;
 use self::map::Point;
 use self::map::Position;
 
+#[derive(Debug, Clone)]
 struct Guard {
-    current: Option<Position>,
-    path: Vec<Position>,
-    past_positions: HashSet<Position>,
+    current_position: Option<Position>,
+    previous_positions: HashSet<Position>,
+    previous_points: HashSet<Point>,
     map: Map,
+}
+
+#[derive(Debug, Clone)]
+enum GuardError {
+    LoopDetected,
 }
 
 impl Guard {
     fn new(map: Map) -> Guard {
         Guard {
-            current: Some(map.guard_start_position()),
-            path: vec![map.guard_start_position()],
-            past_positions: HashSet::from([map.guard_start_position()]),
+            current_position: Some(map.guard_start_position()),
+            previous_positions: HashSet::new(),
+            previous_points: HashSet::new(),
             map,
         }
     }
 
     fn r#move(&mut self) -> Option<Position> {
-        if let Some(position) = self.current {
-            let next_position = position.r#move();
+        if let Some(position) = self.current_position {
+            self.previous_positions.insert(position);
+            self.previous_points.insert(position.point);
+            self.current_position = {
+                let next_position = position.next();
 
-            if !self.map.is_point_on_grid(next_position.point) {
-                self.current = None;
-            } else if self.map.is_point_obstructed(next_position.point) {
-                self.current = Some(position.rotate_clockwise());
-            } else {
-                self.current = Some(next_position);
+                if !self.map.is_point_on_grid(next_position.point) {
+                    None
+                } else if self.map.is_point_obstructed(next_position.point) {
+                    Some(position.rotate_clockwise())
+                } else {
+                    Some(next_position)
+                }
             }
-
-            self.path.push(position);
-            self.past_positions.insert(position);
         }
 
-        self.current
+        self.current_position
     }
 
-    fn move_until_out_of_grid(&mut self) -> Result<(), Box<dyn std::error::Error>> {
+    fn move_until_out_of_grid(&mut self) -> Result<(), GuardError> {
         while let Some(position) = self.r#move() {
-            if self.past_positions.contains(&position) {
-                return Err("loop detected".into());
+            if self.previous_positions.contains(&position) {
+                return Err(GuardError::LoopDetected);
             }
         }
 
@@ -54,28 +61,42 @@ impl Guard {
     }
 }
 
-fn unique_points(guard: &Guard) -> HashSet<Point> {
+fn unique_points(map: Map) -> HashSet<Point> {
+    let mut guard = Guard::new(map);
+    let _ = guard.move_until_out_of_grid();
+
     guard
-        .past_positions
+        .previous_positions
         .iter()
         .map(|p| p.point)
         .collect::<HashSet<_>>()
 }
 
-fn possible_new_obstructions(guard: &Guard) -> HashSet<Point> {
-    guard
-        .past_positions
-        .iter()
-        .map(|p| p.r#move().point)
-        .filter(|p| guard.map.is_point_on_grid(*p) && !guard.map.is_point_obstructed(*p))
-        .filter(|p| {
-            let mut map = guard.map.clone();
-            map.obstructions.insert(*p);
+fn possible_new_obstructions(map: Map) -> HashSet<Point> {
+    let mut guard = Guard::new(map);
+    let mut possible_new_obstructions = HashSet::new();
 
-            let mut guard = Guard::new(map);
-            guard.move_until_out_of_grid().is_err()
-        })
-        .collect::<HashSet<_>>()
+    while let Some(position) = guard.current_position {
+        let next_point = position.next().point;
+
+        if !guard.map.is_point_on_grid(next_point) {
+            break;
+        }
+
+        if !guard.map.is_point_obstructed(next_point)
+            && !guard.previous_points.contains(&next_point)
+        {
+            let mut second_guard = guard.clone();
+            second_guard.map.obstructions.insert(next_point);
+            if let Err(GuardError::LoopDetected) = second_guard.move_until_out_of_grid() {
+                possible_new_obstructions.insert(next_point);
+            }
+        }
+
+        guard.r#move();
+    }
+
+    possible_new_obstructions
 }
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
@@ -86,17 +107,17 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     std::io::stdin().read_to_string(&mut input)?;
 
     let map: Map = input.parse()?;
-    let mut guard = Guard::new(map);
 
-    guard.move_until_out_of_grid()?;
+    let unique_points = unique_points(map.clone());
+    let new_obstructions = possible_new_obstructions(map.clone());
 
     println!(
         "Part 1: distinct points guard will visit: {}",
-        unique_points(&guard).len()
+        unique_points.len()
     );
     println!(
         "Part 2: number of possible new obstructions: {}",
-        possible_new_obstructions(&guard).len()
+        new_obstructions.len()
     );
 
     Ok(())
@@ -114,41 +135,42 @@ mod tests {
     #[test]
     fn test_guard_initial_position() {
         let map: Map = SAMPLE.parse().unwrap();
+        let initial_position = Position {
+            point: Point::new(6, 4),
+            direction: Direction::North,
+        };
 
         let guard = Guard::new(map);
 
-        assert_eq!(
-            guard.current,
-            Some(Position {
-                point: Point::new(6, 4),
-                direction: Direction::North
-            })
-        );
+        assert_eq!(guard.current_position, Some(initial_position));
+        assert_eq!(guard.previous_points.len(), 0);
+        assert_eq!(guard.previous_positions.len(), 0);
     }
 
     #[test]
     fn test_guard_move() {
         let map: Map = SAMPLE.parse().unwrap();
         let mut guard = Guard::new(map);
+        let expected_position = Position {
+            point: Point::new(5, 4),
+            direction: Direction::North,
+        };
+        let previous_position = guard.current_position.unwrap();
 
-        let new_position = guard.r#move();
+        let new_position = guard.r#move().unwrap();
 
-        assert_eq!(
-            new_position,
-            Some(Position {
-                point: Point::new(5, 4),
-                direction: Direction::North
-            })
-        );
+        assert_eq!(new_position, expected_position);
+        assert_eq!(guard.previous_points.len(), 1);
+        assert!(guard.previous_points.contains(&previous_position.point));
+        assert_eq!(guard.previous_positions.len(), 1);
+        assert!(guard.previous_positions.contains(&previous_position));
     }
 
     #[test]
     fn test_count_unique_points() {
         let map: Map = SAMPLE.parse().unwrap();
-        let mut guard = Guard::new(map);
-        guard.move_until_out_of_grid().unwrap();
 
-        let unique_points = unique_points(&guard);
+        let unique_points = unique_points(map);
 
         assert_eq!(unique_points.len(), 41);
     }
@@ -156,10 +178,8 @@ mod tests {
     #[test]
     fn test_possible_new_obstructions() {
         let map: Map = SAMPLE.parse().unwrap();
-        let mut guard = Guard::new(map);
-        guard.move_until_out_of_grid().unwrap();
 
-        let obstructions = dbg!(possible_new_obstructions(&guard));
+        let obstructions = dbg!(possible_new_obstructions(map));
 
         assert_eq!(obstructions.len(), 6);
         assert_eq!(

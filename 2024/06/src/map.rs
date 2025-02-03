@@ -12,7 +12,7 @@ impl Point {
         Point { line, column }
     }
 
-    pub fn move_to(&self, direction: Direction) -> Point {
+    pub fn next_towards(&self, direction: Direction) -> Point {
         match direction {
             Direction::North => Point {
                 line: self.line - 1,
@@ -87,9 +87,9 @@ pub struct Position {
 }
 
 impl Position {
-    pub fn r#move(&self) -> Self {
+    pub fn next(&self) -> Self {
         Position {
-            point: self.point.move_to(self.direction),
+            point: self.point.next_towards(self.direction),
             direction: self.direction,
         }
     }
@@ -99,6 +99,12 @@ impl Position {
             point: self.point,
             direction: self.direction.rotate_clockwise(),
         }
+    }
+}
+
+impl PartialEq<Point> for Position {
+    fn eq(&self, other: &Point) -> bool {
+        self.point == *other
     }
 }
 
@@ -175,10 +181,10 @@ mod tests {
     #[test]
     fn test_point_move_to() {
         let point = Point::new(0, 0);
-        assert_eq!(point.move_to(Direction::North), Point::new(-1, 0));
-        assert_eq!(point.move_to(Direction::South), Point::new(1, 0));
-        assert_eq!(point.move_to(Direction::East), Point::new(0, 1));
-        assert_eq!(point.move_to(Direction::West), Point::new(0, -1));
+        assert_eq!(point.next_towards(Direction::North), Point::new(-1, 0));
+        assert_eq!(point.next_towards(Direction::South), Point::new(1, 0));
+        assert_eq!(point.next_towards(Direction::East), Point::new(0, 1));
+        assert_eq!(point.next_towards(Direction::West), Point::new(0, -1));
     }
 
     #[test]
