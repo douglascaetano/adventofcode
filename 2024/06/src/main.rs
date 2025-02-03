@@ -1,7 +1,10 @@
 mod map;
 
 use std::collections::HashSet;
+use std::fmt::Display;
 use std::io::Read;
+
+use map::Direction;
 
 use self::map::Map;
 use self::map::Point;
@@ -13,6 +16,57 @@ struct Guard {
     previous_positions: HashSet<Position>,
     previous_points: HashSet<Point>,
     map: Map,
+}
+
+impl Display for Guard {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        for point in (0..self.map.width).flat_map(|line| {
+            (0..self.map.height).map(move |column| Point::new(line as isize, column as isize))
+        }) {
+            // Guard position
+            if let Some(position) = self
+                .current_position
+                .iter()
+                .find(|&&position| position.point == point)
+            {
+                write!(f, "{}", position.direction)?;
+            }
+            // Obstructions
+            else if self.map.is_point_obstructed(point) {
+                write!(f, "#")?;
+            }
+            // Starting position
+            else if self.map.guard_start_position() == point {
+                write!(f, "G")?;
+            }
+            // Past positions
+            else if let Some(position) = self
+                .previous_positions
+                .iter()
+                .find(|&&position| position == point)
+            {
+                write!(
+                    f,
+                    "{}",
+                    match position.direction {
+                        Direction::North | Direction::South => '|',
+                        Direction::East | Direction::West => '-',
+                    }
+                )?;
+            }
+            // Empty positions
+            else {
+                write!(f, ".")?;
+            }
+
+            // new line
+            if point.column == self.map.width as isize - 1 {
+                writeln!(f)?;
+            }
+        }
+
+        Ok(())
+    }
 }
 
 #[derive(Debug, Clone)]
