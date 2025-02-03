@@ -1,4 +1,5 @@
 use std::collections::HashSet;
+use std::fmt::Display;
 use std::str::FromStr;
 
 #[derive(Debug, Default, Clone, Copy, Hash, Eq, PartialEq)]
@@ -34,6 +35,12 @@ impl Point {
     }
 }
 
+impl Display for Point {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "({}, {})", self.line, self.column)
+    }
+}
+
 impl From<(isize, isize)> for Point {
     fn from((line, column): (isize, isize)) -> Self {
         Point::new(line, column)
@@ -53,6 +60,21 @@ pub enum Direction {
     South,
     East,
     West,
+}
+
+impl Display for Direction {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(
+            f,
+            "{}",
+            match self {
+                Direction::North => '^',
+                Direction::South => 'v',
+                Direction::East => '>',
+                Direction::West => '<',
+            }
+        )
+    }
 }
 
 impl Direction {
