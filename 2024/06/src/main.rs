@@ -157,8 +157,16 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     println!("Hello, Advent of Code 2024!");
     println!("--- Day 6 ---");
 
+    // Get filename from command line args or use default
+    let filename = std::env::args()
+        .nth(1)
+        .unwrap_or_else(|| "input.txt".to_string());
+
+    println!("Input file: {}", filename);
+
+    // Read the input file
     let mut input = String::new();
-    std::io::stdin().read_to_string(&mut input)?;
+    std::fs::File::open(filename)?.read_to_string(&mut input)?;
 
     let map: Map = input.parse()?;
 
